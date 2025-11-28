@@ -1,0 +1,38 @@
+version: "3.8"
+services:
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: ashish
+      POSTGRES_PASSWORD: ashishpwd
+      POSTGRES_DB: ashishstock
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
+
+  backend:
+    build: ./backend
+    env_file: .env
+    depends_on:
+      - postgres
+      - redis
+    ports:
+      - "8000:8000"
+
+  nlp:
+    build: ./nlp-engine
+    env_file: .env
+    depends_on:
+      - postgres
+      - redis
+    ports:
+      - "8001:8001"
+
+volumes:
+  pgdata:
