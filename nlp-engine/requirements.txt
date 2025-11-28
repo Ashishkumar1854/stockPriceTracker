@@ -1,0 +1,7 @@
+fastapi
+uvicorn[standard]
+requests
+spacy
+transformers
+pydantic
+celery[redis]
