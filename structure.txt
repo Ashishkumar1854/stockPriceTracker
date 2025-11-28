@@ -1,0 +1,63 @@
+ashishStockTracker/
+├── infra/                         # infra for dev & prod (docker-compose, k8s manifests)
+│   ├── docker-compose.yml
+│   ├── nginx/
+│   └── k8s/
+├── postgres/                       # init sql / migrations (optional)
+├── frontend/                       # React (JSX) app
+│   ├── package.json
+│   ├── tailwind.config.js
+│   └── src/
+│       ├── index.jsx
+│       ├── App.jsx
+│       ├── pages/
+│       │   ├── Home.jsx
+│       │   ├── Login.jsx
+│       │   ├── Signup.jsx
+│       │   ├── Dashboard.jsx
+│       │   ├── CompanyDetail.jsx
+│       │   └── AdminPanel.jsx
+│       ├── components/
+│       │   ├── auth/
+│       │   ├── dashboard/
+│       │   └── ui/
+│       ├── services/               # frontend API client, auth client
+│       └── utils/
+├── backend/                        # Node + Express (JS)
+│   ├── package.json
+│   ├── src/
+│   │   ├── index.js                # Express app entry
+│   │   ├── config/
+│   │   ├── middleware/
+│   │   ├── routes/
+│   │   │   ├── auth.js
+│   │   │   ├── users.js
+│   │   │   ├── companies.js
+│   │   │   └── admin.js
+│   │   ├── controllers/
+│   │   ├── services/               # wrappers for call to nlp-service, price-service, mailer, stripe
+│   │   ├── jobs/                   # cron triggers, job publisher
+│   │   └── models/                 # ORM models (Prisma or Sequelize)
+│   └── Dockerfile
+├── nlp-engine/                     # Python FastAPI service (NLP, prediction)
+│   ├── app/
+│   │   ├── main.py                 # FastAPI entry
+│   │   ├── api/                    # endpoints to request reprocess, get prediction etc.
+│   │   ├── services/
+│   │   │   ├── scraper_manager.py
+│   │   │   ├── parser.py
+│   │   │   ├── sentiment_analyzer.py
+│   │   │   ├── entity_extractor.py
+│   │   │   └── predictor.py
+│   │   ├── workers/                # Celery tasks
+│   │   └── models.py               # optional pydantic models
+│   ├── requirements.txt
+│   └── Dockerfile
+├── scraper/                        # small utilities / standalone scrapers (playwright scripts)
+│   └── google_news_scraper.py
+├── price-tracker/
+│   └── fetch_price.py              # wrap yfinance / alpha vantage
+├── scripts/                        # helpful dev scripts (migrate, seed)
+├── monitoring/                     # prometheus, grafana configs
+├── README.md
+└── .env.example
