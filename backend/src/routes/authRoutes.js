@@ -1,4 +1,3 @@
-cat > (src / routes / authRoutes.js) << "EOF";
 import express from "express";
 import { signup, login } from "../controllers/authController.js";
 
@@ -8,4 +7,3 @@ router.post("/signup", signup);
 router.post("/login", login);
 
 export default router;
-EOF;
