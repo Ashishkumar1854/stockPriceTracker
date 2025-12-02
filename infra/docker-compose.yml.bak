@@ -1,3 +1,4 @@
+cat > infra/docker-compose.yml <<'YAML'
 services:
   postgres:
     image: postgres:15
@@ -17,3 +18,4 @@ services:
 
 volumes:
   pgdata:
+YAML
