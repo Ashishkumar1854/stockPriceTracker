@@ -7,6 +7,8 @@ import helmet from "helmet";
 import { PrismaClient } from "@prisma/client";
 
 import authRoutes from "./routes/authRoutes.js";
+import priceRoutes from "./routes/priceRoutes.js";
+
 import companyRoutes from "./routes/companyRoutes.js";
 import watchlistRoutes from "./routes/watchlistRoutes.js";
 import analysisRoutes from "./routes/analysisRoutes.js";
@@ -71,6 +73,9 @@ app.get("/users", async (req, res, next) => {
 
 // Auth routes
 app.use("/auth", authRoutes);
+
+// Price routes
+app.use("/price", priceRoutes);
 
 // NLP / analysis routes
 app.use("/analysis", analysisRoutes);
