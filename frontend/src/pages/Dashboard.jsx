@@ -1,18 +1,63 @@
 // frontend/src/pages/Dashboard.jsx
+import { useEffect, useState } from "react";
 import { useAuth } from "../context/AuthProvider";
 import { useNavigate } from "react-router-dom";
+import { getCompanyAnalysisById } from "../services/analysisService";
 
 const Dashboard = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+
+  // For now, fixed companyId = 1 (TCS) as MVP
+  const [selectedCompanyId] = useState(1);
+  const [analysis, setAnalysis] = useState(null);
+  const [loadingAnalysis, setLoadingAnalysis] = useState(false);
+  const [analysisError, setAnalysisError] = useState("");
 
   const handleLogout = async () => {
     await logout();
     navigate("/login");
   };
 
+  useEffect(() => {
+    const fetchAnalysis = async () => {
+      if (!selectedCompanyId) return;
+      setLoadingAnalysis(true);
+      setAnalysisError("");
+      try {
+        const data = await getCompanyAnalysisById(selectedCompanyId);
+        setAnalysis(data);
+      } catch (err) {
+        console.error("Failed to load analysis:", err);
+        setAnalysisError(
+          err?.response?.data?.error || "Failed to load sentiment data"
+        );
+      } finally {
+        setLoadingAnalysis(false);
+      }
+    };
+
+    fetchAnalysis();
+  }, [selectedCompanyId]);
+
+  // Helper: sentiment color
+  const sentimentColor =
+    analysis?.predicted_move === "up"
+      ? "text-green-600"
+      : analysis?.predicted_move === "down"
+      ? "text-red-600"
+      : "text-slate-700";
+
+  const sentimentBg =
+    analysis?.predicted_move === "up"
+      ? "bg-green-50 border-green-200"
+      : analysis?.predicted_move === "down"
+      ? "bg-red-50 border-red-200"
+      : "bg-slate-50 border-slate-200";
+
   return (
     <div className="min-h-screen bg-slate-100">
+      {/* HEADER */}
       <header className="bg-white shadow-sm">
         <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
           <div>
@@ -43,6 +88,7 @@ const Dashboard = () => {
         </div>
       </header>
 
+      {/* MAIN */}
       <main className="max-w-6xl mx-auto px-4 py-6">
         <div className="grid gap-4 md:grid-cols-3">
           {/* Left: Welcome + summary */}
@@ -89,8 +135,9 @@ const Dashboard = () => {
           </aside>
         </div>
 
-        {/* Placeholder sections for your core features */}
+        {/* Watchlist + Sentiment */}
         <section className="mt-6 grid gap-4 md:grid-cols-2">
+          {/* Watchlist placeholder */}
           <div className="bg-white rounded-xl shadow-sm p-5">
             <h3 className="text-sm font-semibold text-slate-800 mb-3">
               Watchlist (coming soon)
@@ -99,15 +146,116 @@ const Dashboard = () => {
               Here we&apos;ll show list of companies you track: TCS, INFY,
               RELIANCE, etc., with quick sentiment + price trend summary.
             </p>
-          </div>
-          <div className="bg-white rounded-xl shadow-sm p-5">
-            <h3 className="text-sm font-semibold text-slate-800 mb-3">
-              Today&apos;s Sentiment & Prediction (coming soon)
-            </h3>
-            <p className="text-xs text-slate-500">
-              This section will show combined sentiment score & predicted move
-              for next session, based on latest news your NLP engine processes.
+            <p className="mt-2 text-xs text-slate-500">
+              Currently demo sentiment is fetched for{" "}
+              <span className="font-semibold">company ID 1 (TCS)</span>.
             </p>
+          </div>
+
+          {/* Sentiment & Prediction card */}
+          <div className={`rounded-xl shadow-sm p-5 border ${sentimentBg}`}>
+            <h3 className="text-sm font-semibold text-slate-800 mb-3">
+              Today&apos;s Sentiment & Prediction
+            </h3>
+
+            {loadingAnalysis && (
+              <p className="text-xs text-slate-500">Loading sentiment...</p>
+            )}
+
+            {analysisError && (
+              <p className="text-xs text-red-600 mb-2">{analysisError}</p>
+            )}
+
+            {!loadingAnalysis && analysis && !analysisError && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-slate-500 uppercase tracking-wide">
+                      Company
+                    </p>
+                    <p className="text-sm font-semibold text-slate-900">
+                      {analysis.company?.name ||
+                        analysis.company?.ticker ||
+                        analysis.company ||
+                        "N/A"}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs text-slate-500 uppercase">
+                      Predicted move
+                    </p>
+                    <p className={`text-sm font-semibold ${sentimentColor}`}>
+                      {analysis.predicted_move === "up"
+                        ? "↑ Up"
+                        : analysis.predicted_move === "down"
+                        ? "↓ Down"
+                        : "→ Neutral"}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between text-xs">
+                  <div>
+                    <p className="text-slate-500">Avg sentiment (compound)</p>
+                    <p className="font-semibold text-slate-800">
+                      {analysis.avg_compound?.toFixed(3)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-slate-500">Articles analyzed</p>
+                    <p className="font-semibold text-slate-800">
+                      {analysis.article_count}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Articles list */}
+                <div className="mt-3">
+                  <p className="text-xs font-semibold text-slate-700 mb-1">
+                    Latest news sentiment
+                  </p>
+                  <div className="space-y-2 max-h-40 overflow-auto pr-1">
+                    {analysis.articles?.map((a, idx) => (
+                      <div
+                        key={idx}
+                        className="border border-slate-100 rounded-md p-2 bg-white/70"
+                      >
+                        <p className="text-xs font-medium text-slate-800 line-clamp-2">
+                          {a.title}
+                        </p>
+                        <div className="flex items-center justify-between mt-1">
+                          <span className="text-[10px] text-slate-500">
+                            {a.sentiment?.label?.toUpperCase()} •{" "}
+                            {a.sentiment?.scores?.compound?.toFixed(3)}
+                          </span>
+                          {a.link && (
+                            <a
+                              href={a.link}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-[10px] text-indigo-600 hover:underline"
+                            >
+                              Open
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                    {!analysis.articles?.length && (
+                      <p className="text-[11px] text-slate-400">
+                        No recent articles found.
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {!loadingAnalysis && !analysis && !analysisError && (
+              <p className="text-xs text-slate-500">
+                No sentiment data yet. Try again later.
+              </p>
+            )}
           </div>
         </section>
       </main>
