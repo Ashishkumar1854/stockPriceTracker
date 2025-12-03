@@ -1,11 +1,30 @@
+# nlp-engine/app/main.py
+
+
 from fastapi import FastAPI
-app = FastAPI(title="Ashish NLP Service")
+from fastapi.middleware.cors import CORSMiddleware
+
+from app.api.nlp import router as nlp_router
+
+app = FastAPI(
+    title="AshishStockTracker NLP Engine",
+    version="0.1.0",
+)
+
+# CORS - dev friendly; later tighten for prod
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # prod: only backend origin
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 
 @app.get("/health")
 async def health():
-    return {"status":"ok"}
+    return {"status": "ok", "service": "nlp-engine"}
 
-@app.post("/v1/process-article")
-async def process_article(payload: dict):
-    # stub: receive article, run sentiment/ner, store into DB via backend service
-    return {"processed": True}
+
+# All NLP endpoints under /nlp/...
+app.include_router(nlp_router, prefix="/nlp", tags=["nlp"])

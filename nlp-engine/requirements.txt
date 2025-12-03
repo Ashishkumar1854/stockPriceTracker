@@ -1,7 +1,10 @@
 fastapi
 uvicorn[standard]
 requests
+feedparser
+beautifulsoup4
+vaderSentiment
 spacy
-transformers
 pydantic
+python-dotenv
 celery[redis]
