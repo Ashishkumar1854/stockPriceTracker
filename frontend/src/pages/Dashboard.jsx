@@ -8,8 +8,8 @@ import {
   addToWatchlist,
   createCompany,
 } from "../services/companyService";
-import Navbar from "../components/ui/Navbar";
-import Footer from "../components/ui/Footer";
+import { getPriceHistory } from "../services/priceService";
+import PriceChart from "../components/dashboard/PriceChart";
 
 const Dashboard = () => {
   const { user, logout } = useAuth();
@@ -25,6 +25,12 @@ const Dashboard = () => {
   const [loadingWatchlist, setLoadingWatchlist] = useState(false);
   const [watchlistError, setWatchlistError] = useState("");
 
+  // Price states
+  const [priceData, setPriceData] = useState(null);
+  const [loadingPrice, setLoadingPrice] = useState(false);
+  const [priceError, setPriceError] = useState("");
+
+  // For future: quick add company (MVP hardcoded TCS / form later)
   const [adding, setAdding] = useState(false);
 
   const handleLogout = async () => {
@@ -42,6 +48,7 @@ const Dashboard = () => {
         setWatchlist(items || []);
 
         if (items && items.length > 0) {
+          // auto select first company
           setSelectedCompany(items[0].company);
         }
       } catch (err) {
@@ -79,17 +86,49 @@ const Dashboard = () => {
     fetchAnalysis();
   }, [selectedCompany]);
 
+  // Load price history whenever selectedCompany changes
+  useEffect(() => {
+    const fetchPrice = async () => {
+      if (!selectedCompany?.ticker) {
+        setPriceData(null);
+        return;
+      }
+      setLoadingPrice(true);
+      setPriceError("");
+      try {
+        let symbol = selectedCompany.ticker;
+
+        // Simple mapping for demo: TCS -> TCS.NS
+        if (symbol === "TCS") {
+          symbol = "TCS.NS";
+        }
+
+        const data = await getPriceHistory(symbol, "1mo", "1d");
+        setPriceData(data);
+      } catch (err) {
+        console.error("Failed to load price:", err);
+        setPriceError(
+          err?.response?.data?.error || "Failed to load price history"
+        );
+      } finally {
+        setLoadingPrice(false);
+      }
+    };
+
+    fetchPrice();
+  }, [selectedCompany]);
+
   // Helper: sentiment color based on predicted move
   const sentimentColor =
     analysis?.predicted_move === "up"
-      ? "text-emerald-600"
+      ? "text-green-600"
       : analysis?.predicted_move === "down"
       ? "text-red-600"
       : "text-slate-700";
 
   const sentimentBg =
     analysis?.predicted_move === "up"
-      ? "bg-emerald-50 border-emerald-200"
+      ? "bg-green-50 border-green-200"
       : analysis?.predicted_move === "down"
       ? "bg-red-50 border-red-200"
       : "bg-slate-50 border-slate-200";
@@ -98,6 +137,7 @@ const Dashboard = () => {
   const handleAddTcsToWatchlist = async () => {
     setAdding(true);
     try {
+      // create company if not exists (backend handles unique ticker)
       const company = await createCompany({
         ticker: "TCS",
         name: "Tata Consultancy Services",
@@ -106,6 +146,7 @@ const Dashboard = () => {
 
       await addToWatchlist(company.id);
 
+      // reload watchlist
       const items = await getWatchlist();
       setWatchlist(items || []);
       if (items && items.length > 0) {
@@ -121,254 +162,244 @@ const Dashboard = () => {
   };
 
   return (
-    <div className="flex min-h-screen flex-col bg-slate-50">
-      {/* Global navbar with search + profile */}
-      <Navbar />
+    <div className="min-h-screen bg-slate-100">
+      {/* HEADER */}
+      <header className="bg-white shadow-sm">
+        <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
+          <div>
+            <h1 className="text-xl font-semibold text-slate-900">
+              AshishStockTracker
+            </h1>
+            <p className="text-xs text-slate-500">
+              Emotion + News based stock insight (MVP)
+            </p>
+          </div>
 
-      <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-4 py-6 md:flex-row">
-        {/* LEFT COLUMN: account + watchlist */}
-        <section className="flex w-full flex-col gap-4 md:w-2/5">
-          {/* Account card */}
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Account
+          <div className="flex items-center gap-4">
+            {user && (
+              <div className="text-right">
+                <p className="text-sm font-medium text-slate-800">
+                  {user.name || "User"}
                 </p>
-                <p className="mt-1 text-xs text-slate-400">
-                  Welcome back, {user?.name || "Investor"} 👋
-                </p>
+                <p className="text-xs text-slate-500">{user.email}</p>
               </div>
-              <button
-                onClick={handleLogout}
-                className="rounded-full bg-red-500 px-3 py-1 text-[11px] font-medium text-white hover:bg-red-600"
-              >
-                Logout
-              </button>
-            </div>
+            )}
+            <button
+              onClick={handleLogout}
+              className="px-3 py-1.5 text-xs font-medium rounded-md bg-red-500 text-white hover:bg-red-600"
+            >
+              Logout
+            </button>
+          </div>
+        </div>
+      </header>
 
+      {/* MAIN */}
+      <main className="max-w-6xl mx-auto px-4 py-6">
+        <div className="grid gap-4 md:grid-cols-3">
+          {/* Left: Welcome + summary */}
+          <section className="md:col-span-2 bg-white rounded-xl shadow-sm p-5">
+            <h2 className="text-lg font-semibold text-slate-900 mb-2">
+              Welcome{user?.name ? `, ${user.name}` : ""} 👋
+            </h2>
+            <p className="text-sm text-slate-600 mb-4">
+              This is your personal dashboard. Soon you&apos;ll see:
+            </p>
+            <ul className="list-disc list-inside text-sm text-slate-600 space-y-1">
+              <li>Your watchlist companies</li>
+              <li>Latest news sentiment per company</li>
+              <li>Price movement prediction (up / down / neutral)</li>
+              <li>Alert for high-risk negative news</li>
+            </ul>
+          </section>
+
+          {/* Right: quick user card */}
+          <aside className="bg-white rounded-xl shadow-sm p-5">
+            <h3 className="text-sm font-semibold text-slate-800 mb-3">
+              Account
+            </h3>
             {user ? (
-              <div className="mt-4 space-y-1 text-sm text-slate-700">
+              <div className="space-y-1 text-sm">
                 <p>
-                  <span className="font-medium">Name:</span> {user.name || "—"}
+                  <span className="font-medium text-slate-700">Name: </span>
+                  {user.name || "—"}
                 </p>
                 <p>
-                  <span className="font-medium">Email:</span> {user.email}
+                  <span className="font-medium text-slate-700">Email: </span>
+                  {user.email}
                 </p>
                 <p>
-                  <span className="font-medium">Provider:</span>{" "}
+                  <span className="font-medium text-slate-700">Provider: </span>
                   {user.provider || "local"}
                 </p>
               </div>
             ) : (
-              <p className="mt-3 text-xs text-slate-500">
+              <p className="text-xs text-slate-500">
                 No user info loaded. Try logging in again.
               </p>
             )}
-          </div>
+          </aside>
+        </div>
 
-          {/* Watchlist card */}
-          <div className="flex-1 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="flex items-center justify-between gap-2">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Watchlist
-                </p>
-                <p className="mt-1 text-[11px] text-slate-500">
-                  Selecting a company updates the sentiment card on the right.
-                </p>
-              </div>
+        {/* Watchlist + Sentiment + Price */}
+        <section className="mt-6 grid gap-4 md:grid-cols-2">
+          {/* Watchlist actual */}
+          <div className="bg-white rounded-xl shadow-sm p-5">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold text-slate-800">
+                Watchlist
+              </h3>
               <button
                 onClick={handleAddTcsToWatchlist}
                 disabled={adding}
-                className="rounded-full bg-indigo-600 px-3 py-1 text-[11px] font-medium text-white hover:bg-indigo-700 disabled:opacity-60"
+                className="text-[11px] px-2 py-1 rounded-md bg-indigo-50 text-indigo-700 hover:bg-indigo-100 disabled:opacity-60"
               >
                 {adding ? "Adding..." : "Add TCS demo"}
               </button>
             </div>
 
-            <div className="mt-4 space-y-2">
-              {loadingWatchlist && (
-                <p className="text-xs text-slate-500">Loading watchlist...</p>
-              )}
+            {loadingWatchlist && (
+              <p className="text-xs text-slate-500">Loading watchlist...</p>
+            )}
 
-              {watchlistError && (
-                <p className="text-xs text-red-600">{watchlistError}</p>
-              )}
+            {watchlistError && (
+              <p className="text-xs text-red-600 mb-2">{watchlistError}</p>
+            )}
 
-              {!loadingWatchlist &&
-                watchlist.length === 0 &&
-                !watchlistError && (
-                  <p className="text-xs text-slate-500">
-                    No companies yet. Use{" "}
-                    <span className="font-semibold">“Add TCS demo”</span> to add
-                    your first company.
-                  </p>
-                )}
-
-              {watchlist.map((item) => {
-                const c = item.company;
-                const isSelected = selectedCompany?.id === c.id;
-                return (
-                  <button
-                    key={item.id}
-                    onClick={() => setSelectedCompany(c)}
-                    className={`flex w-full items-center justify-between rounded-xl border px-3 py-2 text-left text-xs transition ${
-                      isSelected
-                        ? "border-indigo-500 bg-indigo-50"
-                        : "border-slate-200 bg-slate-50 hover:bg-slate-100"
-                    }`}
-                  >
-                    <div>
-                      <p className="font-semibold text-slate-800">
-                        {c.ticker}
-                        {c.exchange ? ` · ${c.exchange}` : ""}
-                      </p>
-                      <p className="mt-0.5 text-[11px] text-slate-500">
-                        {c.name}
-                      </p>
-                    </div>
-                    <span className="text-[10px] text-slate-400">
-                      {new Date(item.createdAt).toLocaleDateString("en-IN", {
-                        day: "2-digit",
-                        month: "short",
-                      })}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </section>
-
-        {/* RIGHT COLUMN: sentiment & prediction */}
-        <section className="flex w-full flex-1 flex-col gap-4 md:w-3/5">
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-              Overview
-            </p>
-            <p className="mt-1 text-sm text-slate-600">
-              This is your personal AI dashboard. Soon you&apos;ll get:
-            </p>
-            <ul className="mt-2 list-disc list-inside text-sm text-slate-600 space-y-1">
-              <li>Live sentiment for each company in your watchlist</li>
-              <li>Next-session price move hints (up / down / sideways)</li>
-              <li>Alerts for negative news spikes</li>
-            </ul>
-          </div>
-
-          <div className={`rounded-2xl border ${sentimentBg} p-5 shadow-sm`}>
-            <div className="flex items-center justify-between gap-2">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Today&apos;s Sentiment & Prediction
-                </p>
-                {selectedCompany && (
-                  <p className="mt-1 text-[11px] text-slate-500">
-                    Showing analysis for{" "}
-                    <span className="font-semibold">
-                      {selectedCompany.ticker} — {selectedCompany.name}
-                    </span>
-                  </p>
-                )}
-                {!selectedCompany && (
-                  <p className="mt-1 text-[11px] text-slate-500">
-                    Select a company from your watchlist to view sentiment.
-                  </p>
-                )}
-              </div>
-            </div>
-
-            {/* States */}
-            {loadingAnalysis && selectedCompany && (
-              <p className="mt-4 text-xs text-slate-500">
-                Fetching latest sentiment...
+            {!loadingWatchlist && watchlist.length === 0 && !watchlistError && (
+              <p className="text-xs text-slate-500">
+                No companies in your watchlist yet. Use &quot;Add TCS demo&quot;
+                to add first company.
               </p>
             )}
 
+            {watchlist.length > 0 && (
+              <ul className="space-y-1">
+                {watchlist.map((item) => {
+                  const c = item.company;
+                  const isSelected = selectedCompany?.id === c.id;
+                  return (
+                    <li key={item.id}>
+                      <button
+                        onClick={() => setSelectedCompany(c)}
+                        className={`w-full text-left px-3 py-2 rounded-md text-xs border ${
+                          isSelected
+                            ? "bg-indigo-50 border-indigo-300 text-indigo-800"
+                            : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-semibold">{c.ticker}</span>
+                          <span className="text-[10px]">
+                            {c.exchange || "—"}
+                          </span>
+                        </div>
+                        <p className="text-[11px] mt-0.5 truncate">{c.name}</p>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+
+            <p className="mt-3 text-[11px] text-slate-400">
+              Selecting a company updates the sentiment & price chart card on
+              the right.
+            </p>
+          </div>
+
+          {/* Sentiment & Prediction + Price Chart */}
+          <div className={`rounded-xl shadow-sm p-5 border ${sentimentBg}`}>
+            <h3 className="text-sm font-semibold text-slate-800 mb-3">
+              Today&apos;s Sentiment & Prediction
+            </h3>
+
+            {selectedCompany && (
+              <p className="text-[11px] text-slate-500 mb-2">
+                Showing analysis for{" "}
+                <span className="font-semibold">
+                  {selectedCompany.ticker} — {selectedCompany.name}
+                </span>
+              </p>
+            )}
+
+            {!selectedCompany && (
+              <p className="text-xs text-slate-500 mb-2">
+                Select a company from your watchlist to view sentiment & price.
+              </p>
+            )}
+
+            {loadingAnalysis && selectedCompany && (
+              <p className="text-xs text-slate-500">Loading sentiment...</p>
+            )}
+
             {analysisError && (
-              <p className="mt-4 text-xs text-red-600">{analysisError}</p>
+              <p className="text-xs text-red-600 mb-2">{analysisError}</p>
             )}
 
             {!loadingAnalysis &&
-              !analysis &&
+              analysis &&
               !analysisError &&
               selectedCompany && (
-                <p className="mt-4 text-xs text-slate-500">
-                  No sentiment data yet. Try again later.
-                </p>
-              )}
-
-            {/* Main analysis */}
-            {analysis && !analysisError && (
-              <>
-                <div className="mt-5 grid gap-4 md:grid-cols-3">
-                  <div className="rounded-xl bg-white/70 p-4 text-sm">
-                    <p className="text-[11px] font-semibold uppercase text-slate-500">
-                      Company
-                    </p>
-                    <p className="mt-1 text-base font-semibold text-slate-900">
-                      {analysis.company || selectedCompany?.ticker}
-                    </p>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs text-slate-500 uppercase tracking-wide">
+                        Company
+                      </p>
+                      <p className="text-sm font-semibold text-slate-900">
+                        {analysis.company?.name ||
+                          analysis.company?.ticker ||
+                          analysis.company ||
+                          "N/A"}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs text-slate-500 uppercase">
+                        Predicted move
+                      </p>
+                      <p className={`text-sm font-semibold ${sentimentColor}`}>
+                        {analysis.predicted_move === "up"
+                          ? "↑ Up"
+                          : analysis.predicted_move === "down"
+                          ? "↓ Down"
+                          : "→ Neutral"}
+                      </p>
+                    </div>
                   </div>
 
-                  <div className="rounded-xl bg-white/70 p-4 text-sm">
-                    <p className="text-[11px] font-semibold uppercase text-slate-500">
-                      Predicted move
-                    </p>
-                    <p className={`mt-1 text-xl font-bold ${sentimentColor}`}>
-                      {analysis.predicted_move === "up"
-                        ? "↑ Up"
-                        : analysis.predicted_move === "down"
-                        ? "↓ Down"
-                        : "→ Sideways"}
-                    </p>
-                  </div>
-
-                  <div className="rounded-xl bg-white/70 p-4 text-sm">
-                    <p className="text-[11px] font-semibold uppercase text-slate-500">
-                      Avg sentiment (compound)
-                    </p>
-                    <p className="mt-1 text-xl font-semibold text-slate-900">
-                      {analysis.avg_compound?.toFixed(3)}
-                    </p>
-                    <p className="mt-1 text-[11px] text-slate-500">
-                      Articles analyzed:{" "}
-                      <span className="font-semibold">
+                  <div className="flex items-center justify-between text-xs">
+                    <div>
+                      <p className="text-slate-500">Avg sentiment (compound)</p>
+                      <p className="font-semibold text-slate-800">
+                        {analysis.avg_compound?.toFixed(3)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-slate-500">Articles analyzed</p>
+                      <p className="font-semibold text-slate-800">
                         {analysis.article_count}
-                      </span>
-                    </p>
+                      </p>
+                    </div>
                   </div>
-                </div>
 
-                {/* Articles */}
-                {analysis.articles && analysis.articles.length > 0 && (
-                  <div className="mt-6">
-                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  {/* Articles list */}
+                  <div className="mt-3">
+                    <p className="text-xs font-semibold text-slate-700 mb-1">
                       Latest news sentiment
                     </p>
-                    <div className="space-y-3 text-xs max-h-64 overflow-auto pr-1">
-                      {analysis.articles.map((a, idx) => (
+                    <div className="space-y-2 max-h-40 overflow-auto pr-1">
+                      {analysis.articles?.map((a, idx) => (
                         <div
                           key={idx}
-                          className="flex flex-col gap-1 rounded-xl border border-slate-100 bg-white/80 p-3 md:flex-row md:items-center md:justify-between"
+                          className="border border-slate-100 rounded-md p-2 bg-white/70"
                         >
-                          <div className="md:max-w-[70%]">
-                            <p className="font-medium text-slate-800">
-                              {a.title}
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-3 md:justify-end">
-                            <span
-                              className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                                a.sentiment?.label === "positive"
-                                  ? "bg-emerald-50 text-emerald-700"
-                                  : a.sentiment?.label === "negative"
-                                  ? "bg-red-50 text-red-700"
-                                  : "bg-slate-100 text-slate-700"
-                              }`}
-                            >
-                              {a.sentiment?.label?.toUpperCase()} ·{" "}
+                          <p className="text-xs font-medium text-slate-800 line-clamp-2">
+                            {a.title}
+                          </p>
+                          <div className="flex items-center justify-between mt-1">
+                            <span className="text-[10px] text-slate-500">
+                              {a.sentiment?.label?.toUpperCase()} •{" "}
                               {a.sentiment?.scores?.compound?.toFixed(3)}
                             </span>
                             {a.link && (
@@ -376,7 +407,7 @@ const Dashboard = () => {
                                 href={a.link}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="text-[11px] font-medium text-indigo-600 hover:underline"
+                                className="text-[10px] text-indigo-600 hover:underline"
                               >
                                 Open
                               </a>
@@ -384,16 +415,55 @@ const Dashboard = () => {
                           </div>
                         </div>
                       ))}
+                      {!analysis.articles?.length && (
+                        <p className="text-[11px] text-slate-400">
+                          No recent articles found.
+                        </p>
+                      )}
                     </div>
                   </div>
+                </div>
+              )}
+
+            {!loadingAnalysis &&
+              !analysis &&
+              !analysisError &&
+              selectedCompany && (
+                <p className="text-xs text-slate-500">
+                  No sentiment data yet. Try again later.
+                </p>
+              )}
+
+            {/* PRICE CHART SECTION */}
+            <div className="mt-5 border-t border-slate-200 pt-4">
+              <h4 className="text-xs font-semibold text-slate-700 mb-2">
+                Price history (last 1 month)
+              </h4>
+
+              {loadingPrice && selectedCompany && (
+                <p className="text-xs text-slate-500">Loading price data...</p>
+              )}
+
+              {priceError && (
+                <p className="text-xs text-red-600 mb-2">{priceError}</p>
+              )}
+
+              {!loadingPrice && priceData?.prices?.length > 0 && (
+                <PriceChart data={priceData} />
+              )}
+
+              {!loadingPrice &&
+                !priceError &&
+                selectedCompany &&
+                (!priceData || !priceData.prices?.length) && (
+                  <p className="text-xs text-slate-500">
+                    No recent price data available for this symbol.
+                  </p>
                 )}
-              </>
-            )}
+            </div>
           </div>
         </section>
       </main>
-
-      <Footer />
     </div>
   );
 };
