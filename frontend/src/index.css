@@ -2,5 +2,3 @@
 @tailwind components;
 @tailwind utilities;
 
-/* add any global styles below */
-body { @apply bg-white text-gray-800; }
