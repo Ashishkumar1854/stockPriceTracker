@@ -14,4 +14,8 @@ model User {
   provider  String?
   password  String?
   createdAt DateTime @default(now())
+
+  role      String   @default("user") // 👈 NEW (user | admin later)
+
+  watchlists Watchlist[]             // 👈 relation to watchlist
 }
