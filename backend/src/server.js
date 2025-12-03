@@ -9,6 +9,7 @@ import { PrismaClient } from "@prisma/client";
 import authRoutes from "./routes/authRoutes.js";
 import companyRoutes from "./routes/companyRoutes.js";
 import watchlistRoutes from "./routes/watchlistRoutes.js";
+import analysisRoutes from "./routes/analysisRoutes.js";
 
 dotenv.config();
 
@@ -70,6 +71,9 @@ app.get("/users", async (req, res, next) => {
 
 // Auth routes
 app.use("/auth", authRoutes);
+
+// NLP / analysis routes
+app.use("/analysis", analysisRoutes);
 
 // Company routes
 app.use("/companies", companyRoutes);
