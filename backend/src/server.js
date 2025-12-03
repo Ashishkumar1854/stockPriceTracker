@@ -5,13 +5,18 @@ import dotenv from "dotenv";
 import cookieParser from "cookie-parser";
 import helmet from "helmet";
 import { PrismaClient } from "@prisma/client";
+
 import authRoutes from "./routes/authRoutes.js";
+import companyRoutes from "./routes/companyRoutes.js";
+import watchlistRoutes from "./routes/watchlistRoutes.js";
 
 dotenv.config();
 
 const app = express();
 const prisma = new PrismaClient();
 
+// IMPORTANT: set in .env -> FRONTEND_URL=http://localhost:5173 (for Vite)
+// Fallback 3000 if not set
 const FRONTEND_ORIGIN = process.env.FRONTEND_URL || "http://localhost:3000";
 const PORT = process.env.PORT || 8000;
 
@@ -54,6 +59,7 @@ app.get("/users", async (req, res, next) => {
         email: true,
         provider: true,
         createdAt: true,
+        role: true,
       },
     });
     res.json(users);
@@ -65,6 +71,12 @@ app.get("/users", async (req, res, next) => {
 // Auth routes
 app.use("/auth", authRoutes);
 
+// Company routes
+app.use("/companies", companyRoutes);
+
+// Watchlist routes
+app.use("/watchlist", watchlistRoutes);
+
 // 404
 app.use((req, res) => {
   res.status(404).json({ error: "Not found" });
@@ -72,7 +84,7 @@ app.use((req, res) => {
 
 // Error handler
 app.use((err, req, res, next) => {
-  console.error(err);
+  console.error("Unhandled error:", err);
   res.status(500).json({ error: "Internal server error" });
 });
 

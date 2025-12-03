@@ -1,3 +1,4 @@
+//File: backend/prisma/schema.prisma
 generator client {
   provider = "prisma-client-js"
 }
@@ -15,7 +16,31 @@ model User {
   password  String?
   createdAt DateTime @default(now())
 
-  role      String   @default("user") // 👈 NEW (user | admin later)
+  role      String   @default("user")
 
-  watchlists Watchlist[]             // 👈 relation to watchlist
+  watchlists Watchlist[]
+}
+
+model Company {
+  id        Int         @id @default(autoincrement())
+  ticker    String      @unique
+  name      String
+  exchange  String?
+  sector    String?
+  industry  String?
+  createdAt DateTime    @default(now())
+
+  watchlists Watchlist[]
+}
+
+model Watchlist {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  companyId Int
+  createdAt DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id])
+  company Company @relation(fields: [companyId], references: [id])
+
+  @@unique([userId, companyId])
 }
