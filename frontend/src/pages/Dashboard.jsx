@@ -3,29 +3,68 @@ import { useEffect, useState } from "react";
 import { useAuth } from "../context/AuthProvider";
 import { useNavigate } from "react-router-dom";
 import { getCompanyAnalysisById } from "../services/analysisService";
+import {
+  getWatchlist,
+  addToWatchlist,
+  createCompany,
+} from "../services/companyService";
 
 const Dashboard = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
-  // For now, fixed companyId = 1 (TCS) as MVP
-  const [selectedCompanyId] = useState(1);
+  const [watchlist, setWatchlist] = useState([]);
+  const [selectedCompany, setSelectedCompany] = useState(null);
+
   const [analysis, setAnalysis] = useState(null);
   const [loadingAnalysis, setLoadingAnalysis] = useState(false);
   const [analysisError, setAnalysisError] = useState("");
+
+  const [loadingWatchlist, setLoadingWatchlist] = useState(false);
+  const [watchlistError, setWatchlistError] = useState("");
+
+  // For future: quick add company (MVP hardcoded TCS / form later)
+  const [adding, setAdding] = useState(false);
 
   const handleLogout = async () => {
     await logout();
     navigate("/login");
   };
 
+  // Load watchlist on mount
+  useEffect(() => {
+    const fetchWatchlist = async () => {
+      setLoadingWatchlist(true);
+      setWatchlistError("");
+      try {
+        const items = await getWatchlist();
+        setWatchlist(items || []);
+
+        if (items && items.length > 0) {
+          // auto select first company
+          setSelectedCompany(items[0].company);
+        }
+      } catch (err) {
+        console.error("Failed to load watchlist:", err);
+        setWatchlistError(
+          err?.response?.data?.error || "Failed to load watchlist"
+        );
+      } finally {
+        setLoadingWatchlist(false);
+      }
+    };
+
+    fetchWatchlist();
+  }, []);
+
+  // Load analysis whenever selectedCompany changes
   useEffect(() => {
     const fetchAnalysis = async () => {
-      if (!selectedCompanyId) return;
+      if (!selectedCompany?.id) return;
       setLoadingAnalysis(true);
       setAnalysisError("");
       try {
-        const data = await getCompanyAnalysisById(selectedCompanyId);
+        const data = await getCompanyAnalysisById(selectedCompany.id);
         setAnalysis(data);
       } catch (err) {
         console.error("Failed to load analysis:", err);
@@ -38,9 +77,9 @@ const Dashboard = () => {
     };
 
     fetchAnalysis();
-  }, [selectedCompanyId]);
+  }, [selectedCompany]);
 
-  // Helper: sentiment color
+  // Helper: sentiment color based on predicted move
   const sentimentColor =
     analysis?.predicted_move === "up"
       ? "text-green-600"
@@ -54,6 +93,34 @@ const Dashboard = () => {
       : analysis?.predicted_move === "down"
       ? "bg-red-50 border-red-200"
       : "bg-slate-50 border-slate-200";
+
+  // MVP: add hardcoded TCS to watchlist (for demo)
+  const handleAddTcsToWatchlist = async () => {
+    setAdding(true);
+    try {
+      // create company if not exists (backend handles unique ticker)
+      const company = await createCompany({
+        ticker: "TCS",
+        name: "Tata Consultancy Services",
+        exchange: "NSE",
+      });
+
+      await addToWatchlist(company.id);
+
+      // reload watchlist
+      const items = await getWatchlist();
+      setWatchlist(items || []);
+      if (items && items.length > 0) {
+        const tcsItem = items.find((i) => i.company.ticker === "TCS");
+        if (tcsItem) setSelectedCompany(tcsItem.company);
+      }
+    } catch (err) {
+      console.error("Failed to add TCS:", err);
+      alert(err?.response?.data?.error || "Failed to add TCS to watchlist");
+    } finally {
+      setAdding(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-slate-100">
@@ -137,18 +204,68 @@ const Dashboard = () => {
 
         {/* Watchlist + Sentiment */}
         <section className="mt-6 grid gap-4 md:grid-cols-2">
-          {/* Watchlist placeholder */}
+          {/* Watchlist actual */}
           <div className="bg-white rounded-xl shadow-sm p-5">
-            <h3 className="text-sm font-semibold text-slate-800 mb-3">
-              Watchlist (coming soon)
-            </h3>
-            <p className="text-xs text-slate-500">
-              Here we&apos;ll show list of companies you track: TCS, INFY,
-              RELIANCE, etc., with quick sentiment + price trend summary.
-            </p>
-            <p className="mt-2 text-xs text-slate-500">
-              Currently demo sentiment is fetched for{" "}
-              <span className="font-semibold">company ID 1 (TCS)</span>.
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold text-slate-800">
+                Watchlist
+              </h3>
+              <button
+                onClick={handleAddTcsToWatchlist}
+                disabled={adding}
+                className="text-[11px] px-2 py-1 rounded-md bg-indigo-50 text-indigo-700 hover:bg-indigo-100 disabled:opacity-60"
+              >
+                {adding ? "Adding..." : "Add TCS demo"}
+              </button>
+            </div>
+
+            {loadingWatchlist && (
+              <p className="text-xs text-slate-500">Loading watchlist...</p>
+            )}
+
+            {watchlistError && (
+              <p className="text-xs text-red-600 mb-2">{watchlistError}</p>
+            )}
+
+            {!loadingWatchlist && watchlist.length === 0 && !watchlistError && (
+              <p className="text-xs text-slate-500">
+                No companies in your watchlist yet. Use &quot;Add TCS demo&quot;
+                to add first company.
+              </p>
+            )}
+
+            {watchlist.length > 0 && (
+              <ul className="space-y-1">
+                {watchlist.map((item) => {
+                  const c = item.company;
+                  const isSelected = selectedCompany?.id === c.id;
+                  return (
+                    <li key={item.id}>
+                      <button
+                        onClick={() => setSelectedCompany(c)}
+                        className={`w-full text-left px-3 py-2 rounded-md text-xs border ${
+                          isSelected
+                            ? "bg-indigo-50 border-indigo-300 text-indigo-800"
+                            : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-semibold">{c.ticker}</span>
+                          <span className="text-[10px]">
+                            {c.exchange || "—"}
+                          </span>
+                        </div>
+                        <p className="text-[11px] mt-0.5 truncate">{c.name}</p>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+
+            <p className="mt-3 text-[11px] text-slate-400">
+              Selecting a company updates the sentiment & prediction card on the
+              right.
             </p>
           </div>
 
@@ -158,7 +275,22 @@ const Dashboard = () => {
               Today&apos;s Sentiment & Prediction
             </h3>
 
-            {loadingAnalysis && (
+            {selectedCompany && (
+              <p className="text-[11px] text-slate-500 mb-2">
+                Showing analysis for{" "}
+                <span className="font-semibold">
+                  {selectedCompany.ticker} — {selectedCompany.name}
+                </span>
+              </p>
+            )}
+
+            {!selectedCompany && (
+              <p className="text-xs text-slate-500 mb-2">
+                Select a company from your watchlist to view sentiment.
+              </p>
+            )}
+
+            {loadingAnalysis && selectedCompany && (
               <p className="text-xs text-slate-500">Loading sentiment...</p>
             )}
 
@@ -166,96 +298,102 @@ const Dashboard = () => {
               <p className="text-xs text-red-600 mb-2">{analysisError}</p>
             )}
 
-            {!loadingAnalysis && analysis && !analysisError && (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs text-slate-500 uppercase tracking-wide">
-                      Company
-                    </p>
-                    <p className="text-sm font-semibold text-slate-900">
-                      {analysis.company?.name ||
-                        analysis.company?.ticker ||
-                        analysis.company ||
-                        "N/A"}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-xs text-slate-500 uppercase">
-                      Predicted move
-                    </p>
-                    <p className={`text-sm font-semibold ${sentimentColor}`}>
-                      {analysis.predicted_move === "up"
-                        ? "↑ Up"
-                        : analysis.predicted_move === "down"
-                        ? "↓ Down"
-                        : "→ Neutral"}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between text-xs">
-                  <div>
-                    <p className="text-slate-500">Avg sentiment (compound)</p>
-                    <p className="font-semibold text-slate-800">
-                      {analysis.avg_compound?.toFixed(3)}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-slate-500">Articles analyzed</p>
-                    <p className="font-semibold text-slate-800">
-                      {analysis.article_count}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Articles list */}
-                <div className="mt-3">
-                  <p className="text-xs font-semibold text-slate-700 mb-1">
-                    Latest news sentiment
-                  </p>
-                  <div className="space-y-2 max-h-40 overflow-auto pr-1">
-                    {analysis.articles?.map((a, idx) => (
-                      <div
-                        key={idx}
-                        className="border border-slate-100 rounded-md p-2 bg-white/70"
-                      >
-                        <p className="text-xs font-medium text-slate-800 line-clamp-2">
-                          {a.title}
-                        </p>
-                        <div className="flex items-center justify-between mt-1">
-                          <span className="text-[10px] text-slate-500">
-                            {a.sentiment?.label?.toUpperCase()} •{" "}
-                            {a.sentiment?.scores?.compound?.toFixed(3)}
-                          </span>
-                          {a.link && (
-                            <a
-                              href={a.link}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="text-[10px] text-indigo-600 hover:underline"
-                            >
-                              Open
-                            </a>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                    {!analysis.articles?.length && (
-                      <p className="text-[11px] text-slate-400">
-                        No recent articles found.
+            {!loadingAnalysis &&
+              analysis &&
+              !analysisError &&
+              selectedCompany && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs text-slate-500 uppercase tracking-wide">
+                        Company
                       </p>
-                    )}
+                      <p className="text-sm font-semibold text-slate-900">
+                        {analysis.company?.name ||
+                          analysis.company?.ticker ||
+                          analysis.company ||
+                          "N/A"}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs text-slate-500 uppercase">
+                        Predicted move
+                      </p>
+                      <p className={`text-sm font-semibold ${sentimentColor}`}>
+                        {analysis.predicted_move === "up"
+                          ? "↑ Up"
+                          : analysis.predicted_move === "down"
+                          ? "↓ Down"
+                          : "→ Neutral"}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs">
+                    <div>
+                      <p className="text-slate-500">Avg sentiment (compound)</p>
+                      <p className="font-semibold text-slate-800">
+                        {analysis.avg_compound?.toFixed(3)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-slate-500">Articles analyzed</p>
+                      <p className="font-semibold text-slate-800">
+                        {analysis.article_count}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Articles list */}
+                  <div className="mt-3">
+                    <p className="text-xs font-semibold text-slate-700 mb-1">
+                      Latest news sentiment
+                    </p>
+                    <div className="space-y-2 max-h-40 overflow-auto pr-1">
+                      {analysis.articles?.map((a, idx) => (
+                        <div
+                          key={idx}
+                          className="border border-slate-100 rounded-md p-2 bg-white/70"
+                        >
+                          <p className="text-xs font-medium text-slate-800 line-clamp-2">
+                            {a.title}
+                          </p>
+                          <div className="flex items-center justify-between mt-1">
+                            <span className="text-[10px] text-slate-500">
+                              {a.sentiment?.label?.toUpperCase()} •{" "}
+                              {a.sentiment?.scores?.compound?.toFixed(3)}
+                            </span>
+                            {a.link && (
+                              <a
+                                href={a.link}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-[10px] text-indigo-600 hover:underline"
+                              >
+                                Open
+                              </a>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                      {!analysis.articles?.length && (
+                        <p className="text-[11px] text-slate-400">
+                          No recent articles found.
+                        </p>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {!loadingAnalysis && !analysis && !analysisError && (
-              <p className="text-xs text-slate-500">
-                No sentiment data yet. Try again later.
-              </p>
-            )}
+            {!loadingAnalysis &&
+              !analysis &&
+              !analysisError &&
+              selectedCompany && (
+                <p className="text-xs text-slate-500">
+                  No sentiment data yet. Try again later.
+                </p>
+              )}
           </div>
         </section>
       </main>
