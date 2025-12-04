@@ -4,11 +4,12 @@ import cors from "cors";
 import dotenv from "dotenv";
 import cookieParser from "cookie-parser";
 import helmet from "helmet";
+import http from "http";
+import { Server as SocketIOServer } from "socket.io";
 import { PrismaClient } from "@prisma/client";
 
 import authRoutes from "./routes/authRoutes.js";
 import priceRoutes from "./routes/priceRoutes.js";
-
 import companyRoutes from "./routes/companyRoutes.js";
 import watchlistRoutes from "./routes/watchlistRoutes.js";
 import analysisRoutes from "./routes/analysisRoutes.js";
@@ -20,14 +21,43 @@ const app = express();
 const prisma = new PrismaClient();
 
 // IMPORTANT: set in .env -> FRONTEND_URL=http://localhost:5173 (for Vite)
-// Fallback 3000 if not set
-const FRONTEND_ORIGIN = process.env.FRONTEND_URL || "http://localhost:3000";
+const FRONTEND_ORIGIN = process.env.FRONTEND_URL || "http://localhost:5173";
 const PORT = process.env.PORT || 8000;
 
-// Security headers
+// ---------- HTTP + SOCKET.IO SERVER ----------
+const server = http.createServer(app);
+
+const io = new SocketIOServer(server, {
+  cors: {
+    origin: FRONTEND_ORIGIN,
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  },
+});
+
+// Expose io instance to routes/controllers via req.app.get("io")
+app.set("io", io);
+
+// Handle socket connections
+io.on("connection", (socket) => {
+  console.log("🔌 New socket connected:", socket.id);
+
+  // For now: client bhejega { userId } via auth
+  const { userId } = socket.handshake.auth || {};
+  if (userId) {
+    const room = `user:${userId}`;
+    socket.join(room);
+    console.log(`👤 Socket ${socket.id} joined room ${room}`);
+  }
+
+  socket.on("disconnect", () => {
+    console.log("❌ Socket disconnected:", socket.id);
+  });
+});
+
+// ---------- MIDDLEWARE ----------
 app.use(helmet());
 
-// CORS: allow credentials for cookie-based refresh token
 app.use(
   cors({
     origin: FRONTEND_ORIGIN,
@@ -36,7 +66,6 @@ app.use(
   })
 );
 
-// parse cookies and json
 app.use(cookieParser());
 app.use(express.json());
 
@@ -48,12 +77,11 @@ app.use((req, res, next) => {
   next();
 });
 
-// Health
+// ---------- ROUTES ----------
 app.get("/health", (req, res) => {
   res.json({ status: "OK", message: "Backend running!" });
 });
 
-// DB test (remove or protect in prod)
 app.get("/users", async (req, res, next) => {
   try {
     const users = await prisma.user.findMany({
@@ -72,21 +100,11 @@ app.get("/users", async (req, res, next) => {
   }
 });
 
-// Auth routes
 app.use("/auth", authRoutes);
-
-// Price routes
 app.use("/price", priceRoutes);
-
-// NLP / analysis routes
 app.use("/analysis", analysisRoutes);
-
-// Company routes
 app.use("/companies", companyRoutes);
-
-// Watchlist routes
 app.use("/watchlist", watchlistRoutes);
-
 app.use("/alerts", alertRoutes);
 
 // 404
@@ -100,7 +118,7 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: "Internal server error" });
 });
 
-// Graceful shutdown
+// ---------- SHUTDOWN ----------
 const shutdown = async () => {
   console.log("Shutting down server...");
   try {
@@ -114,8 +132,9 @@ const shutdown = async () => {
 process.on("SIGINT", shutdown);
 process.on("SIGTERM", shutdown);
 
-app.listen(PORT, () => {
+// Start HTTP + WebSocket server
+server.listen(PORT, () => {
   console.log(
-    `🚀 Server running on port ${PORT} (CORS origin: ${FRONTEND_ORIGIN})`
+    `🚀 Server + WebSocket running on port ${PORT} (CORS origin: ${FRONTEND_ORIGIN})`
   );
 });

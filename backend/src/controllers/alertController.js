@@ -1,5 +1,4 @@
-//backend/src/controllers/alertController.js
-
+// backend/src/controllers/alertController.js
 import { PrismaClient } from "@prisma/client";
 const prisma = new PrismaClient();
 
@@ -38,13 +37,30 @@ export const markSeen = async (req, res) => {
 // DEV: create test alert
 export const createTestAlert = async (req, res) => {
   try {
+    const { companyId } = req.body || {};
+
     const alert = await prisma.alert.create({
       data: {
         userId: req.user.id,
+        companyId: companyId ?? null,
         type: "test_alert",
         message: "This is a test alert for your account!",
       },
     });
+
+    // 🔔 Emit real-time alert over WebSocket
+    const io = req.app.get("io");
+    if (io) {
+      const room = `user:${req.user.id}`;
+      io.to(room).emit("alert:new", {
+        id: alert.id,
+        type: alert.type,
+        message: alert.message,
+        createdAt: alert.createdAt,
+        seen: alert.seen,
+      });
+      console.log(`📡 Emitted alert:new to room ${room}`);
+    }
 
     return res.json({ alert });
   } catch (err) {

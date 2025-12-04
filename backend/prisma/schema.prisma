@@ -1,4 +1,4 @@
-//File: backend/prisma/schema.prisma
+// backend/prisma/schema.prisma
 generator client {
   provider = "prisma-client-js"
 }
@@ -9,28 +9,29 @@ datasource db {
 }
 
 model User {
-  id        Int      @id @default(autoincrement())
-  name      String?
-  email     String   @unique
-  provider  String?
-  password  String?
-  createdAt DateTime @default(now())
-
-  role      String   @default("user")
+  id         Int        @id @default(autoincrement())
+  name       String?
+  email      String     @unique
+  provider   String?
+  password   String?
+  createdAt  DateTime   @default(now())
+  role       String     @default("user")
 
   watchlists Watchlist[]
+  alerts     Alert[]
 }
 
 model Company {
-  id        Int         @id @default(autoincrement())
-  ticker    String      @unique
-  name      String
-  exchange  String?
-  sector    String?
-  industry  String?
-  createdAt DateTime    @default(now())
+  id         Int        @id @default(autoincrement())
+  ticker     String     @unique
+  name       String
+  exchange   String?
+  sector     String?
+  industry   String?
+  createdAt  DateTime   @default(now())
 
   watchlists Watchlist[]
+  alerts     Alert[]
 }
 
 model Watchlist {
@@ -46,17 +47,17 @@ model Watchlist {
 }
 
 model Alert {
-  id          Int       @id @default(autoincrement())
-  userId      Int
-  companyId   Int?
-  type        String     // "sentiment_drop", "price_spike", "news_negative"
-  message     String
-  createdAt   DateTime   @default(now())
-  seen        Boolean    @default(false)
+  id        Int       @id @default(autoincrement())
+  userId    Int
+  companyId Int?
+  type      String
+  message   String
+  createdAt DateTime  @default(now())
+  seen      Boolean   @default(false)
 
-  user        User       @relation(fields: [userId], references: [id])
-  company     Company?   @relation(fields: [companyId], references: [id])
+  user    User    @relation(fields: [userId], references: [id])
+  company Company? @relation(fields: [companyId], references: [id])
 
-  @@index([userId])
-  @@index([companyId])
+  @@index([userId, createdAt])
+  @@index([companyId, createdAt])
 }

@@ -1,5 +1,4 @@
-//backend/src/routes/alertRoutes.js
-
+// backend/src/routes/alertRoutes.js
 import express from "express";
 import { authMiddleware } from "../middleware/authMiddleware.js";
 import {
