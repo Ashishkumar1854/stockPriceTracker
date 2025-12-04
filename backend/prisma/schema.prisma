@@ -44,3 +44,19 @@ model Watchlist {
 
   @@unique([userId, companyId])
 }
+
+model Alert {
+  id          Int       @id @default(autoincrement())
+  userId      Int
+  companyId   Int?
+  type        String     // "sentiment_drop", "price_spike", "news_negative"
+  message     String
+  createdAt   DateTime   @default(now())
+  seen        Boolean    @default(false)
+
+  user        User       @relation(fields: [userId], references: [id])
+  company     Company?   @relation(fields: [companyId], references: [id])
+
+  @@index([userId])
+  @@index([companyId])
+}

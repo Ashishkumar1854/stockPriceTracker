@@ -12,6 +12,7 @@ import priceRoutes from "./routes/priceRoutes.js";
 import companyRoutes from "./routes/companyRoutes.js";
 import watchlistRoutes from "./routes/watchlistRoutes.js";
 import analysisRoutes from "./routes/analysisRoutes.js";
+import alertRoutes from "./routes/alertRoutes.js";
 
 dotenv.config();
 
@@ -85,6 +86,8 @@ app.use("/companies", companyRoutes);
 
 // Watchlist routes
 app.use("/watchlist", watchlistRoutes);
+
+app.use("/alerts", alertRoutes);
 
 // 404
 app.use((req, res) => {
