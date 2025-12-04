@@ -30,7 +30,6 @@ const Dashboard = () => {
   const [loadingPrice, setLoadingPrice] = useState(false);
   const [priceError, setPriceError] = useState("");
 
-  // For future: quick add company (MVP hardcoded TCS / form later)
   const [adding, setAdding] = useState(false);
 
   const handleLogout = async () => {
@@ -48,7 +47,6 @@ const Dashboard = () => {
         setWatchlist(items || []);
 
         if (items && items.length > 0) {
-          // auto select first company
           setSelectedCompany(items[0].company);
         }
       } catch (err) {
@@ -98,10 +96,8 @@ const Dashboard = () => {
       try {
         let symbol = selectedCompany.ticker;
 
-        // Simple mapping for demo: TCS -> TCS.NS
-        if (symbol === "TCS") {
-          symbol = "TCS.NS";
-        }
+        // simple NSE mapping demo
+        if (symbol === "TCS") symbol = "TCS.NS";
 
         const data = await getPriceHistory(symbol, "1mo", "1d");
         setPriceData(data);
@@ -137,7 +133,6 @@ const Dashboard = () => {
   const handleAddTcsToWatchlist = async () => {
     setAdding(true);
     try {
-      // create company if not exists (backend handles unique ticker)
       const company = await createCompany({
         ticker: "TCS",
         name: "Tata Consultancy Services",
@@ -146,7 +141,6 @@ const Dashboard = () => {
 
       await addToWatchlist(company.id);
 
-      // reload watchlist
       const items = await getWatchlist();
       setWatchlist(items || []);
       if (items && items.length > 0) {
@@ -195,9 +189,9 @@ const Dashboard = () => {
       </header>
 
       {/* MAIN */}
-      <main className="max-w-6xl mx-auto px-4 py-6">
+      <main className="max-w-6xl mx-auto px-4 py-6 space-y-4">
+        {/* Top row: welcome + account */}
         <div className="grid gap-4 md:grid-cols-3">
-          {/* Left: Welcome + summary */}
           <section className="md:col-span-2 bg-white rounded-xl shadow-sm p-5">
             <h2 className="text-lg font-semibold text-slate-900 mb-2">
               Welcome{user?.name ? `, ${user.name}` : ""} 👋
@@ -213,7 +207,6 @@ const Dashboard = () => {
             </ul>
           </section>
 
-          {/* Right: quick user card */}
           <aside className="bg-white rounded-xl shadow-sm p-5">
             <h3 className="text-sm font-semibold text-slate-800 mb-3">
               Account
@@ -241,9 +234,9 @@ const Dashboard = () => {
           </aside>
         </div>
 
-        {/* Watchlist + Sentiment + Price */}
-        <section className="mt-6 grid gap-4 md:grid-cols-2">
-          {/* Watchlist actual */}
+        {/* Bottom row: Watchlist + Sentiment & Price */}
+        <div className="grid gap-4 md:grid-cols-2">
+          {/* Watchlist */}
           <div className="bg-white rounded-xl shadow-sm p-5">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-semibold text-slate-800">
@@ -308,7 +301,7 @@ const Dashboard = () => {
             </p>
           </div>
 
-          {/* Sentiment & Prediction + Price Chart */}
+          {/* Sentiment + Price card */}
           <div className={`rounded-xl shadow-sm p-5 border ${sentimentBg}`}>
             <h3 className="text-sm font-semibold text-slate-800 mb-3">
               Today&apos;s Sentiment & Prediction
@@ -383,7 +376,6 @@ const Dashboard = () => {
                     </div>
                   </div>
 
-                  {/* Articles list */}
                   <div className="mt-3">
                     <p className="text-xs font-semibold text-slate-700 mb-1">
                       Latest news sentiment
@@ -429,12 +421,12 @@ const Dashboard = () => {
               !analysis &&
               !analysisError &&
               selectedCompany && (
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-slate-500 mt-2">
                   No sentiment data yet. Try again later.
                 </p>
               )}
 
-            {/* PRICE CHART SECTION */}
+            {/* PRICE CHART */}
             <div className="mt-5 border-t border-slate-200 pt-4">
               <h4 className="text-xs font-semibold text-slate-700 mb-2">
                 Price history (last 1 month)
@@ -462,7 +454,7 @@ const Dashboard = () => {
                 )}
             </div>
           </div>
-        </section>
+        </div>
       </main>
     </div>
   );
