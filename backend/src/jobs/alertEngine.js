@@ -6,10 +6,13 @@ import YahooFinance from "yahoo-finance2";
 const prisma = new PrismaClient();
 const yahooFinance = new YahooFinance();
 
-// 3% move threshold
+// 3% move threshold (0.03 = 3%)
 const PRICE_MOVE_THRESHOLD = 0.03;
 
-// Simple ticker -> exchange symbol mapping (MVP)
+// CRON interval config (env se override ho sakta hai)
+const ALERT_CRON = process.env.ALERT_CRON || "*/5 * * * *";
+
+// ------- Helper: ticker -> Yahoo symbol mapping (MVP) -------
 function mapTickerToSymbol(ticker, exchange) {
   if (!ticker) return null;
 
@@ -30,6 +33,7 @@ function mapTickerToSymbol(ticker, exchange) {
   return upper;
 }
 
+// ------- Single scan run -------
 async function scanOnce() {
   console.log("[AlertEngine] Running price-move scan...");
 
@@ -101,8 +105,7 @@ async function scanOnce() {
           `[AlertEngine] Created price alert for user ${user.id} / ${company.ticker}: ${message}`
         );
 
-        // NOTE: WebSocket real-time push:
-        // inside alertEngine.js after prisma.alert.create()
+        // 🔴 Real-time push via WebSocket (if available)
         const io = global._io;
         if (io) {
           io.to(`user:${user.id}`).emit("alert:new", {
@@ -129,15 +132,14 @@ async function scanOnce() {
   }
 }
 
-// Exported starter
+// ------- Starter (used from jobs/index.js) -------
 export const startAlertEngine = () => {
-  console.log("[AlertEngine] Scheduling cron job: every 15 minutes");
+  console.log("[AlertEngine] Scheduling cron job:", ALERT_CRON);
 
-  // Every 15 minutes
-  cron.schedule("*/15 * * * *", async () => {
+  cron.schedule(ALERT_CRON, async () => {
     await scanOnce();
   });
 
-  // Optional: run once at startup for dev
+  // Dev ke liye chaaho to ek baar startup pe bhi chala sakte ho:
   // await scanOnce();
 };
