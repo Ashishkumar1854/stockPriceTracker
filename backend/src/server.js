@@ -7,6 +7,7 @@ import helmet from "helmet";
 import http from "http";
 import { Server as SocketIOServer } from "socket.io";
 import { PrismaClient } from "@prisma/client";
+import { startJobs } from "./jobs/index.js";
 
 import authRoutes from "./routes/authRoutes.js";
 import priceRoutes from "./routes/priceRoutes.js";
@@ -34,6 +35,9 @@ const io = new SocketIOServer(server, {
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   },
 });
+
+// ✅ Global access for background jobs
+global._io = io;
 
 // Expose io instance to routes/controllers via req.app.get("io")
 app.set("io", io);
@@ -137,4 +141,6 @@ server.listen(PORT, () => {
   console.log(
     `🚀 Server + WebSocket running on port ${PORT} (CORS origin: ${FRONTEND_ORIGIN})`
   );
+  // Background jobs start
+  startJobs();
 });

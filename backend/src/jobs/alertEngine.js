@@ -102,13 +102,19 @@ async function scanOnce() {
         );
 
         // NOTE: WebSocket real-time push:
-        // Tumhare paas jo bhi helper hai (e.g. getIO()/broadcastAlert),
-        // yahan use call karo.
-        // Example (agar tumhare paas getIO hai):
-        //
-        // import { getIO } from "../socket.js";
-        // const io = getIO();
-        // io.to(String(user.id)).emit("alert:new", alert);
+        // inside alertEngine.js after prisma.alert.create()
+        const io = global._io;
+        if (io) {
+          io.to(`user:${user.id}`).emit("alert:new", {
+            id: alert.id,
+            type: alert.type,
+            message: alert.message,
+            createdAt: alert.createdAt,
+            seen: alert.seen,
+            companyId: alert.companyId,
+          });
+          console.log(`📡 WebSocket alert sent → user:${user.id}`);
+        }
       } catch (err) {
         console.error(
           `[AlertEngine] Error fetching price for ${symbol}:`,
