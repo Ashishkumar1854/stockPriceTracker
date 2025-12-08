@@ -23,6 +23,7 @@
     "helmet": "^8.1.0",
     "ioredis": "^5.8.2",
     "jsonwebtoken": "^9.0.2",
+    "node-cron": "^4.2.1",
     "socket.io": "^4.8.1",
     "yahoo-finance2": "^3.10.2"
   },
