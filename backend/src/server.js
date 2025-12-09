@@ -46,7 +46,7 @@ app.set("io", io);
 io.on("connection", (socket) => {
   console.log("🔌 New socket connected:", socket.id);
 
-  // For now: client bhejega { userId } via auth
+  // For now: client should send { userId } via handshake auth
   const { userId } = socket.handshake.auth || {};
   if (userId) {
     const room = `user:${userId}`;

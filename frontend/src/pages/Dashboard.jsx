@@ -388,6 +388,22 @@ const Dashboard = () => {
                     </div>
                   </div>
 
+                  {/* Optional: show prediction object (Phase 5A) */}
+                  {analysis.prediction && (
+                    <div className="mt-2 p-3 bg-white rounded border text-xs">
+                      <p className="font-medium">
+                        Signal: {analysis.prediction.move.toUpperCase()}
+                      </p>
+                      <p className="text-sm">
+                        Confidence:{" "}
+                        {(analysis.prediction.confidence * 100).toFixed(1)}%
+                      </p>
+                      <p className="text-slate-600 mt-1">
+                        {analysis.prediction.reason}
+                      </p>
+                    </div>
+                  )}
+
                   {/* Articles list */}
                   <div className="mt-3">
                     <p className="text-xs font-semibold text-slate-700 mb-1">

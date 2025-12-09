@@ -1,48 +1,49 @@
 // backend/src/controllers/analysisController.js
 import { PrismaClient } from "@prisma/client";
-import { scrapeAndAnalyze } from "../services/nlpClient.js";
+import { analyzeFull } from "../services/nlpClient.js";
 
 const prisma = new PrismaClient();
 
 /**
  * GET /analysis/:company
- * company can be ticker or name string (like TCS, INFY, "Tata Motors")
+ * Analyze company name/ticker directly from URL.
+ * Example: /analysis/TCS
  */
 export const analyzeByCompanyString = async (req, res) => {
   try {
     const company = req.params.company;
-    const { limit } = req.query;
-
     if (!company) {
       return res.status(400).json({ error: "company param required" });
     }
 
-    const data = await scrapeAndAnalyze(company, Number(limit) || 5);
-    return res.json(data);
+    const data = await analyzeFull(company);
+
+    return res.json({
+      company: company,
+      ...data, // includes: article_count, avg_compound, predicted_move, prediction, articles
+    });
   } catch (err) {
-    console.error("analyzeByCompanyString error:", err.message);
+    console.error("analyzeByCompanyString error:", err);
     return res.status(500).json({ error: "Failed to analyze company news" });
   }
 };
 
 /**
  * GET /analysis/company/:id
- * Uses DB company name/ticker, then sends to NLP.
+ * Fetch company from DB, then call NLP analyze-full.
  */
 export const analyzeByCompanyId = async (req, res) => {
   try {
     const id = Number(req.params.id);
-    if (!id) {
-      return res.status(400).json({ error: "Invalid company id" });
-    }
+    if (!id) return res.status(400).json({ error: "Invalid company id" });
 
     const company = await prisma.company.findUnique({ where: { id } });
-    if (!company) {
-      return res.status(404).json({ error: "Company not found" });
-    }
+    if (!company) return res.status(404).json({ error: "Company not found" });
 
-    const q = company.ticker || company.name;
-    const data = await scrapeAndAnalyze(q, 5);
+    const queryName = company.ticker || company.name;
+
+    // Calls NLP rule-based prediction
+    const data = await analyzeFull(queryName);
 
     return res.json({
       company: {
@@ -51,10 +52,10 @@ export const analyzeByCompanyId = async (req, res) => {
         name: company.name,
         exchange: company.exchange,
       },
-      ...data,
+      ...data, // enrich NLP response into frontend
     });
   } catch (err) {
-    console.error("analyzeByCompanyId error:", err.message);
+    console.error("analyzeByCompanyId error:", err);
     return res.status(500).json({ error: "Failed to analyze company by id" });
   }
 };
