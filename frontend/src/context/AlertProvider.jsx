@@ -43,13 +43,16 @@ export const AlertProvider = ({ children }) => {
     if (!user) {
       if (socketRef.current) {
         socketRef.current.disconnect();
+        socketRef.current = null;
       }
       return;
     }
 
+    // Use Vite env: import.meta.env
     const baseURL =
       import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
 
+    // connect and authenticate with userId via handshake auth
     const socket = io(baseURL, {
       withCredentials: true,
       auth: {
@@ -65,6 +68,7 @@ export const AlertProvider = ({ children }) => {
 
     socket.on("alert:new", (alert) => {
       console.log("📩 New alert received:", alert);
+      // Prepend new alert
       setAlerts((prev) => [alert, ...prev]);
       setUnseenCount((prev) => prev + 1);
     });
@@ -75,6 +79,7 @@ export const AlertProvider = ({ children }) => {
 
     return () => {
       socket.disconnect();
+      socketRef.current = null;
     };
   }, [user?.id]);
 

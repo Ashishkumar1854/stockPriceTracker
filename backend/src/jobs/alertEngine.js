@@ -7,10 +7,14 @@ const prisma = new PrismaClient();
 const yahooFinance = new YahooFinance();
 
 // 3% move threshold (0.03 = 3%)
-const PRICE_MOVE_THRESHOLD = 0.03;
+const PRICE_MOVE_THRESHOLD = Number(process.env.PRICE_MOVE_THRESHOLD) || 0.03;
 
-// CRON interval config (env se override ho sakta hai)
-const ALERT_CRON = process.env.ALERT_CRON || "*/5 * * * *";
+// CRON interval config (env override)
+const ALERT_CRON = process.env.ALERT_CRON || "*/15 * * * *";
+
+// Dedupe window in minutes (don't create same price_move alert repeatedly)
+// default: 360 minutes = 6 hours
+const ALERT_DEDUPE_MINUTES = Number(process.env.ALERT_DEDUPE_MINUTES) || 360;
 
 // ------- Helper: ticker -> Yahoo symbol mapping (MVP) -------
 function mapTickerToSymbol(ticker, exchange) {
@@ -51,6 +55,8 @@ async function scanOnce() {
       return;
     }
 
+    const dedupeSince = new Date(Date.now() - ALERT_DEDUPE_MINUTES * 60 * 1000);
+
     for (const item of watchlistItems) {
       const { user, company } = item;
       if (!user || !company) continue;
@@ -69,7 +75,7 @@ async function scanOnce() {
         const last = quote.regularMarketPrice;
         const prev = quote.regularMarketPreviousClose;
 
-        if (!last || !prev) {
+        if (last == null || prev == null) {
           console.log(
             `[AlertEngine] Missing price data for ${symbol} (last/prev null)`
           );
@@ -90,6 +96,25 @@ async function scanOnce() {
           direction === "up"
             ? `${company.ticker} moved up ${changePctDisplay}% today.`
             : `${company.ticker} dropped ${changePctDisplay}% today.`;
+
+        // Dedupe: skip if a similar recent alert exists for this user/company/type
+        const recent = await prisma.alert.findFirst({
+          where: {
+            userId: user.id,
+            companyId: company.id,
+            type: "price_move",
+            createdAt: { gte: dedupeSince },
+            // optionally: message contains same direction or text - but createdAt check should suffice
+          },
+          orderBy: { createdAt: "desc" },
+        });
+
+        if (recent) {
+          console.log(
+            `[AlertEngine] skipping duplicate alert for ${company.ticker} (recent exists id=${recent.id})`
+          );
+          continue;
+        }
 
         // Create alert in DB
         const alert = await prisma.alert.create({
@@ -121,7 +146,7 @@ async function scanOnce() {
       } catch (err) {
         console.error(
           `[AlertEngine] Error fetching price for ${symbol}:`,
-          err.message || err
+          err?.message || err
         );
       }
     }
@@ -135,11 +160,10 @@ async function scanOnce() {
 // ------- Starter (used from jobs/index.js) -------
 export const startAlertEngine = () => {
   console.log("[AlertEngine] Scheduling cron job:", ALERT_CRON);
-
   cron.schedule(ALERT_CRON, async () => {
     await scanOnce();
   });
 
-  // Dev ke liye chaaho to ek baar startup pe bhi chala sakte ho:
-  // await scanOnce();
+  // Dev: if you want one immediate run at startup, uncomment below:
+  // (async () => { await scanOnce(); })();
 };
