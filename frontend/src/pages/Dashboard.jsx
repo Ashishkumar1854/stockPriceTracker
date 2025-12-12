@@ -208,7 +208,7 @@ const Dashboard = () => {
               Welcome{user?.name ? `, ${user.name}` : ""} 👋
             </h2>
             <p className="text-sm text-slate-600 mb-4">
-              This is your personal dashboard. Soon you&apos;ll see:
+              This is your personal dashboard. you&apos;ll see:
             </p>
             <ul className="list-disc list-inside text-sm text-slate-600 space-y-1">
               <li>Your watchlist companies</li>
