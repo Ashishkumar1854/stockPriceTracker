@@ -205,7 +205,7 @@ const Dashboard = () => {
           {/* Left: Welcome + summary */}
           <section className="md:col-span-2 bg-white rounded-xl shadow-sm p-5">
             <h2 className="text-lg font-semibold text-slate-900 mb-2">
-              Welcome{user?.name ? `, ${user.name}` : ""} 👋
+              Welcom{user?.name ? `, ${user.name}` : ""} 👋
             </h2>
             <p className="text-sm text-slate-600 mb-4">
               This is your personal dashboard. Soon you&apos;ll see:
